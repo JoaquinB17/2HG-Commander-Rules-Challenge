@@ -500,11 +500,11 @@
 
   <header class="masthead">
     <p class="eyebrow">Case study · Python · data reconciliation · Excel</p>
-    <h1>Every legal team in a tournament nobody could compute by hand</h1>
+    <h1>The Giants' Dilemma</h1>
     <p class="dek">
-      A local Two-Headed Giant Commander event added one house rule that quietly turned
-      deckbuilding into a constraint-satisfaction problem. This finds all 21,699 valid
-      answers and hands them back as a spreadsheet people can actually use.
+      A local tournament invented two rules for forming teams. One is trivial. The other
+      forces you to search 159 preconstructed decks card by card. This is how it got
+      solved, told without assuming you know how to play Magic.
     </p>
     <div class="meta">
       <span><b>Role</b> &nbsp;Sole engineer</span>
@@ -515,27 +515,85 @@
   </header>
 
   <div class="stats">
-    <div class="stat"><div class="n">21,699</div><div class="l">Legal teams</div></div>
-    <div class="stat"><div class="n">1,055</div><div class="l">Eligible commanders</div></div>
     <div class="stat"><div class="n">44</div><div class="l">Precon sets</div></div>
+    <div class="stat"><div class="n">159</div><div class="l">Decks</div></div>
+    <div class="stat"><div class="n">1,055</div><div class="l">Commanders</div></div>
     <div class="stat"><div class="n">551</div><div class="l">Partner pairs</div></div>
-    <div class="stat"><div class="n">53</div><div class="l">Tests</div></div>
+    <div class="stat"><div class="n">21,699</div><div class="l">Legal teams</div></div>
   </div>
 
   <section>
-    <p class="eyebrow">The problem</p>
-    <h2>Two constraints that interact badly</h2>
+    <p class="eyebrow">Context</p>
+    <h2>The bare minimum you need to know</h2>
     <div class="col">
       <p>
-        Two-Headed Giant is a team format — you and your partner sit on the same side.
-        The tournament's house rule says your two commanders must both have been printed
-        in the <em>same preconstructed deck set</em>, and their color identities must not
-        overlap. Reprints count, and any legendary card in the deck counts, not just the
-        one on the box.
+        Magic: The Gathering is a complex card game with many ways to play it. So that
+        the dilemma this tournament faced actually lands, let me define a few things as
+        plainly as possible.
       </p>
       <p>
-        Neither rule is hard alone. Together they eliminate almost everything, and the
-        surviving combinations are impossible to eyeball across 159 decklists.
+        The game is built on a system of <b>colors</b>: White, Blue, Black, Red and
+        Green. From here on I will use their letters — the U is for bl<b>U</b>e, because
+        Black already took the B:
+      </p>
+    </div>
+
+    <div class="legend">
+      <span class="chip"><i class="pip w">W</i> White</span>
+      <span class="chip"><i class="pip u">U</i> Blue</span>
+      <span class="chip"><i class="pip b">B</i> Black</span>
+      <span class="chip"><i class="pip r">R</i> Red</span>
+      <span class="chip"><i class="pip g">G</i> Green</span>
+      <span class="divider"></span>
+      <span class="chip"><i class="pip c">C</i> Colorless</span>
+    </div>
+
+    <div class="col">
+      <p>
+        Colors represent different kinds of magic and creatures, and at the same time
+        they work as a constraint.
+      </p>
+      <p>
+        That last one is not a sixth color: it is the <b>absence</b> of color. Some cards
+        belong to none of the five, and I will mark them with a <b>C</b>. Worth holding
+        onto, because it matters later: a colorless commander can join any colored deck,
+        even a five-color one.
+      </p>
+      <p>
+        What it <b>cannot</b> do is pair with another colorless commander. The tournament
+        treats the absence of color as an identity in its own right, so two colorless
+        commanders share it and the team is out. That is 34 combinations that look valid
+        at first glance and are not.
+      </p>
+      <p>
+        Enter <b>Commander</b>, a way to play where you pick a "commander" that represents
+        your deck and defines which colors you have access to. For example: if your
+        commander is "Mooriel, the Warrior Cow" and she is white and black, you may only
+        use cards of those two colors. It closes off the other three. On top of that you
+        cannot repeat cards — one copy of each, basic lands aside. It is a constraint that
+        invites creativity.
+      </p>
+      <p>
+        The format got so popular partly thanks to <b>preconstructed decks</b>: decks
+        designed to be played straight out of the box, unchanged.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">The tournament</p>
+    <h2>Two rules: one trivial, one brutal</h2>
+    <div class="col">
+      <p>
+        Here is where it gets complicated. The tournament used the <b>Two-Headed Giant</b>
+        format, which is the official name for team play: 2 against 2. And this tournament
+        wanted to be distinctive in how teams were formed, with two rules that turn
+        choosing a partner into a headache.
+      </p>
+      <h3>Rule 1 — You and your partner cannot share colors</h3>
+      <p>
+        If my deck uses every color except blue, then my partner's deck has to be blue and
+        nothing else.
       </p>
     </div>
 
@@ -566,7 +624,7 @@
             <span class="pips"><i class="pip w clash">W</i><i class="pip b">B</i></span>
           </div>
         </div>
-        <span class="verdict no">Shares white</span>
+        <span class="verdict no">Both play white</span>
       </div>
       <div class="matchup">
         <div class="seats">
@@ -583,211 +641,235 @@
         <span class="verdict yes">Legal</span>
       </div>
       <figcaption>
-        Play five colors and your partner is limited to colorless — which is why sets
-        without a colorless commander strand their five-color legends entirely.
+        This is not rocket science. It is simple, and it needs no special solution.
       </figcaption>
     </figure>
-  </section>
 
-  <section>
-    <p class="eyebrow">Engineering</p>
-    <h2>Three decisions that changed the answer</h2>
-
-    <div class="decision">
-      <p class="eyebrow">01 · Source of truth</p>
-      <h3>Decklists, not set membership</h3>
-      <div class="col">
-        <p>
-          The obvious query — every commander-legal card whose set is a Commander set —
-          is wrong, and quietly so. Those set codes also cover Special Guests,
-          booster-only cards and Jumpstart reprints that were never in a precon.
-        </p>
-        <p>
-          Eligibility now comes from actual decklists: a card counts only if it is
-          physically one of the 100 cards. The same change correctly <em>keeps</em> cards
-          whose printing carries the parent expansion's code.
-        </p>
-      </div>
-      <div class="scroll">
-        <table>
-          <caption>Eligible commanders, before and after</caption>
-          <thead>
-            <tr><th>Set</th><th class="num">Set-code query</th><th class="num">Real decklists</th><th class="num">Removed</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Marvel Super Heroes</td><td class="num">251</td><td class="num">88</td><td class="num flag">−163</td></tr>
-            <tr><td>Dominaria United</td><td class="num">65</td><td class="num">41</td><td class="num flag">−24</td></tr>
-            <tr><td>Kamigawa: Neon Dynasty</td><td class="num">26</td><td class="num">15</td><td class="num flag">−11</td></tr>
-            <tr><td>Bloomburrow</td><td class="num">35</td><td class="num">27</td><td class="num flag">−8</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="decision">
-      <p class="eyebrow">02 · Rules that move</p>
-      <h3>Delegate the ruling, don't reimplement it</h3>
-      <div class="col">
-        <p>
-          Eligibility started as a local test: <em>a legendary creature, or text saying it
-          can be your commander</em>. That is the kind of rule that looks correct and rots
-          silently. A rules change made legendary Vehicles and Spacecraft legal
-          commanders — and they carry no such text, so no wording test can ever find them.
-        </p>
-        <p>
-          Eligibility is now delegated to Scryfall's <code>is:commander</code> filter, which
-          tracks rules changes on my behalf. Adopting it added 15 cards and removed none.
-        </p>
-      </div>
-      <div class="scroll">
-        <table>
-          <caption>Cards recovered by delegating</caption>
-          <thead>
-            <tr><th>Type</th><th class="num">Count</th><th>Examples</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Legendary Artifact — Vehicle</td><td class="num gain">+12</td><td>Shorikai, Weatherlight, Parhelion II</td></tr>
-            <tr><td>Legendary Artifact — Spacecraft</td><td class="num gain">+2</td><td>Hearthhull, Inspirit</td></tr>
-            <tr><td>Legendary Planeswalker</td><td class="num gain">+1</td><td>Grist, the Hunger Tide</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="callout">
-        <p>
-          <b>Grist is the tell.</b> It is a creature card everywhere except the battlefield,
-          has always been a legal commander, and predates the rules change entirely. The
-          hand-written test had been silently dropping it the whole time — the local rule
-          was unsound on its own terms, not just out of date.
-        </p>
-      </div>
-    </div>
-
-    <div class="decision">
-      <p class="eyebrow">03 · Trusting the wrong field</p>
-      <h3>Parse oracle text, not the convenience field</h3>
-      <div class="col">
-        <p>
-          Partner mechanics look like they should come from the API's <code>keywords</code>
-          array. They can't. Every <code>Partner with [name]</code> card is tagged with a
-          plain <code>Partner</code> keyword, and so is the restricted
-          <code>Partner—Character select</code>. Building on that field makes cards partner
-          that legally cannot.
-        </p>
-      </div>
-      <blockquote class="quote">
-        A creature with a “partner with” ability can't partner with any creature other
-        than its designated partner.
-      </blockquote>
-      <div class="col">
-        <p>
-          Mechanics are parsed from oracle text instead, and the illegal combinations are
-          pinned directly in unit tests so the distinction can't regress.
-        </p>
-      </div>
-      <div class="scroll">
-        <table>
-          <caption>Five partner mechanics, five different pairing rules</caption>
-          <thead>
-            <tr><th>Mechanic</th><th>Pairs with</th><th class="num">Units</th></tr>
-          </thead>
-          <tbody>
-            <tr><td class="mono">Partner</td><td>any other plain-Partner card</td><td class="num">116</td></tr>
-            <tr><td class="mono">Partner with [name]</td><td><b>only</b> its named card</td><td class="num">14</td></tr>
-            <tr><td class="mono">Partner—Character select</td><td>only other Character select cards</td><td class="num">15</td></tr>
-            <tr><td class="mono">Doctor's companion</td><td>any legendary Time Lord Doctor</td><td class="num">390</td></tr>
-            <tr><td class="mono">Choose a Background</td><td>any Background</td><td class="num">16</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="col">
+      <h3>Rule 2 — Both commanders must have appeared in the same preconstructed deck</h3>
+      <p>And here is the problem.</p>
     </div>
   </section>
 
   <section>
-    <p class="eyebrow">Delivery</p>
-    <h2>The answer had to be a spreadsheet</h2>
+    <p class="eyebrow">The size of the problem</p>
+    <h2>15,900 card slots to search</h2>
     <div class="col">
       <p>
-        Players don't want a CLI. The deliverable is a workbook whose front page takes
-        your picks and lists every commander your partner may legally bring — including
-        partner pairs — with the shared set and which deck to buy it in.
+        As I write this there are <b>44 sets</b> of legal preconstructed decks published
+        since 2011, totalling <b>159 individual decks</b>. Each one holds 100 cards, so we
+        are looking at <b>15,900 card slots</b> — about <b>6,012 distinct cards</b> once
+        you discount everything that repeats across decks.
       </p>
       <p>
-        Two constraints shaped the formulas. <b>Portability:</b> <code>FILTER</code> and
-        <code>XLOOKUP</code> are “future functions” that need <code>_xlfn._xlws.</code>
-        prefixes when a file is generated outside Excel, and render as
-        <code>#NAME?</code> if you get that wrong. Sticking to <code>INDEX</code>/<code>MATCH</code>
-        avoids the trap and keeps it working in Google Sheets, where it's been verified.
+        To decide whether a pairing is legal, four questions have to be answered first:
       </p>
-      <p>
-        <b>Cost:</b> the partner list resolves its block position once, then reads by offset.
-      </p>
-    </div>
-    <pre><code><span class="cmt">// One MATCH per lookup, not one per row.</span>
-<span class="cmt">// Rows are pre-sorted so a commander's partners are contiguous.</span>
-M2 = MATCH($M$1 &amp; "#1", 'Partner Options'!$B:$B, 0)   <span class="cmt">← block start</span>
-M3 = COUNTIF('Partner Options'!$C:$C, $M$1)          <span class="cmt">← block length</span>
-
-<span class="cmt">// each of 469 rows is then a pure offset read</span>
-A17 = INDEX('Partner Options'!$D:$D, $M$2 + ROW() - 17)</code></pre>
-    <div class="col">
-      <p>
-        A per-row <code>MATCH</code> would rescan a 43,000-row table on every keystroke. The
-        whole workbook contains 110 <code>MATCH</code> calls in total.
-      </p>
+      <ol class="questions">
+        <li>Where do I get the data for these cards?</li>
+        <li>How many of these cards can be commanders?</li>
+        <li>Are there special cases?</li>
+        <li>How many legal pairings exist?</li>
+      </ol>
     </div>
   </section>
 
   <section>
-    <p class="eyebrow">Confidence</p>
-    <h2>Proving a spreadsheet actually works</h2>
+    <p class="eyebrow">Questions 1 and 2</p>
+    <h2>Where the data comes from, and who can be a commander</h2>
     <div class="col">
       <p>
-        openpyxl writes formulas but never evaluates them, so an off-by-one in an
-        <code>INDEX</code> offset would ship looking perfect. Tests run in three layers, each
-        answering a different question.
+        Two powerful tools answer these: <b>MTGJSON</b> and <b>Scryfall</b>. Magic is
+        popular enough that it has prompted a whole ecosystem of tools for tracking rules,
+        history, cards, editions and collections.
+      </p>
+      <p>
+        MTGJSON maintains a database with the decklists of the preconstructed decks, ready
+        to examine: that will be our card list. Scryfall is the most complete card
+        database in the game, and it tells us the colors and which cards may be commanders.
+      </p>
+      <p>
+        The best approach is to take the cards from the decks and run them through
+        Scryfall's <code>is:commander</code> filter. Per the rules, a commander must be:
+      </p>
+      <ul>
+        <li>a <b>legendary creature, Spacecraft or Vehicle</b>, or</li>
+        <li>a <b>planeswalker</b> card that explicitly says it can be your commander.</li>
+      </ul>
+    </div>
+
+    <div class="callout">
+      <p>
+        Searching by hand with those two criteria runs into exceptions. The most notable is
+        <b>Grist, the Hunger Tide</b>, which is legally a commander but satisfies neither
+        criterion. I will spare you the details, but Grist is a headache inside the rules
+        because of how it is worded — and precisely for that reason, <b>not</b> using
+        <code>is:commander</code> would drop it without anyone noticing.
       </p>
     </div>
-    <div class="layers">
-      <div class="layer">
-        <div class="count">22</div>
-        <div class="name">test_rules.py</div>
-        <p>Pure functions, no network, 0.2s. Pins the partner-legality matrix — especially the combinations that must <em>not</em> be legal.</p>
+
+    <div class="col">
+      <p>With the filter applied, the total comes to <b>1,055 possible commanders</b>.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Question 3</p>
+    <h2>The special cases</h2>
+    <div class="col">
+      <p>And here it gets more complex still.</p>
+      <p>
+        Normally you have a single commander, but some cards let you have <b>two</b>. And
+        depending on which mechanic, things get complicated.
+      </p>
+      <p>
+        <b>Partner.</b> Cards you can pair freely with each other. There are <b>27</b> in
+        the precons, and since each can be up to 2 colors, a pair can reach 4.
+      </p>
+      <p>
+        <b>Partner with.</b> Cards with one very specific partner, named on the card
+        itself. Far easier to handle: each has exactly one possible match.
+      </p>
+      <p>
+        <b>Doctor's companion.</b> Introduced in the Doctor Who set. It lets a card with
+        that ability be your second commander if your main commander is a <i>Time Lord
+        Doctor</i>. 41 cards in total: <b>15 Doctors</b> and <b>26 companions</b>.
+      </p>
+      <p>
+        <b>Choose a Background.</b> Applies to <b>4 creatures</b> that can pair with
+        <b>4 cards</b> defining their background.
+      </p>
+      <p>
+        <b>Character select.</b> <b>6 creatures</b> you can pair with one another.
+      </p>
+    </div>
+
+    <div class="decision">
+      <p class="eyebrow">Where rule 2 actually bites</p>
+      <h3>Why this cannot be solved by multiplying on a napkin</h3>
+      <div class="col">
+        <p>
+          Doctor's companion lives entirely inside one set (Doctor Who). Character select
+          lives entirely in another (Ninja Turtles). Backgrounds, in Baldur's Gate. Because
+          each mechanic is contained in a single set, the "same preconstructed deck" rule
+          removes nothing, and multiplying gives the right answer:
+        </p>
       </div>
-      <div class="layer">
-        <div class="count">19</div>
-        <div class="name">test_workbook.py</div>
-        <p>Invariants over all 21,699 generated rows, checked against the source decklists rather than the build's own state, so a bug can't vouch for itself.</p>
+      <div class="scroll">
+        <table>
+          <caption>Mechanics contained in a single set</caption>
+          <thead>
+            <tr><th>Mechanic</th><th>The arithmetic</th><th class="num">Legal pairs</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">Doctor's companion</td><td>15 Doctors × 26 companions</td><td class="num">390</td></tr>
+            <tr><td class="mono">Choose a Background</td><td>4 creatures × 4 backgrounds</td><td class="num">16</td></tr>
+            <tr><td class="mono">Character select</td><td>6 creatures with each other</td><td class="num">15</td></tr>
+            <tr><td class="mono">Partner with</td><td>each with its single match</td><td class="num">14</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="layer">
-        <div class="count">12</div>
-        <div class="name">test_team_builder_excel.py</div>
-        <p>Opens the workbook in a real Excel instance over COM, types into the input cells, forces recalculation and compares what Excel computes.</p>
+      <div class="col">
+        <p>
+          <b>Partner is the exception</b>, and that is what makes it interesting. Its 27
+          cards are spread across <b>10 different sets</b>. If they all combined with each
+          other that would be <b>351 pairs</b>. But rule 2 demands both came out of the same
+          precon, and that cuts it to <b>116</b>.
+        </p>
+        <p>
+          In fact 105 of those 116 come from a single product: <b>Commander 2016</b>, which
+          on its own brings 15 cards with Partner. The other 11 are scattered across the
+          remaining nine sets.
+        </p>
+        <p>In total: <b>551 legal partner pairs</b>.</p>
       </div>
     </div>
+
+    <div class="decision">
+      <p class="eyebrow">A curiosity</p>
+      <h3>Why Commander 2016 is the tournament's best product</h3>
+      <div class="col">
+        <p>
+          C16 is worth pausing on, because it does not merely contribute the most pairs:
+          they are also the <b>most flexible</b>, which matters enormously when rule 1
+          forbids you from stepping on your partner's colors.
+        </p>
+        <p>
+          Its 15 Partner cards are <b>all exactly two colors</b>, and between them they
+          cover <b>all ten two-color combinations</b> that exist in the game. Not one is
+          missing.
+        </p>
+      </div>
+      <div class="scroll">
+        <table>
+          <caption>Color coverage by set</caption>
+          <thead>
+            <tr><th>Set</th><th class="num">Pairs</th><th class="num">Distinct color identities</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Commander 2016</td><td class="num">105</td><td class="num gain">20</td></tr>
+            <tr><td>Doctor Who</td><td class="num">392</td><td class="num">14</td></tr>
+            <tr><td>Baldur's Gate</td><td class="num">17</td><td class="num">13</td></tr>
+            <tr><td>Ninja Turtles</td><td class="num">16</td><td class="num">8</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col">
+        <p>
+          Of those 105 pairs, 65 reach three colors and 35 reach four. Which means: with
+          C16 you can build a four-color deck and leave your partner a single color, or
+          split three and two. Almost any division they come up with has a pair that
+          supports it.
+        </p>
+        <p>
+          And as a curiosity, that flexibility comes with raw power. The C16 partners —
+          <b>Thrasios, Triton Hero</b>, <b>Tymna the Weaver</b>, <b>Vial Smasher the
+          Fierce</b>, <b>Kraum, Ludevic's Opus</b> — have been staples of competitive
+          Commander for years; Thrasios + Tymna is probably the best-known pair in the
+          format. Wizards printed a product designed for its cards to combine with each
+          other, and a decade later it turns out to be exactly what this tournament rewards.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Question 4</p>
+    <h2>How many legal pairings exist</h2>
     <div class="col">
       <p>
-        The invariants are deliberately adversarial: no team may share a color, no card may
-        appear on both sides, and every commander must trace back to a decklist of the set
-        it claims. Two bugs were caught this way that no amount of reading would have found.
+        Adding it all up, a "seat" on a team is not a card: it is <b>a card or a legal
+        pair</b>. That gives <b>1,602 possible commander configurations</b>.
+      </p>
+      <p>
+        And only then can the original question be answered, by crossing every
+        configuration against all the others and filtering by the two rules:
+      </p>
+    </div>
+    <blockquote class="quote">
+      21,699 legal pairings.
+    </blockquote>
+    <div class="col">
+      <p>
+        Of those, 11,534 are one commander per side, and 10,165 involve at least one
+        partner pair.
       </p>
     </div>
   </section>
 
   <section>
     <p class="eyebrow">Findings</p>
-    <h2>Some sets barely function</h2>
+    <h2>What showed up at the end</h2>
     <div class="col">
       <p>
-        Once every team is enumerable, the format's shape becomes visible — and it is
-        lopsided. This is the output people found most useful, because it tells you which
-        sets to avoid before anyone spends money.
+        Once you can finally enumerate every pairing, something nobody had noticed appears:
+        the format is <b>very</b> lopsided.
       </p>
     </div>
     <div class="scroll">
       <table>
         <caption>Viability by set</caption>
         <thead>
-          <tr><th>Set</th><th class="num">Commanders</th><th class="num">With no legal partner</th><th class="num">Legal teams</th></tr>
+          <tr><th>Set</th><th class="num">Commanders</th><th class="num">With no possible partner</th><th class="num">Legal pairings</th></tr>
         </thead>
         <tbody>
           <tr><td>Phyrexia: All Will Be One</td><td class="num">7</td><td class="num flag">7</td><td class="num flag">0</td></tr>
@@ -799,11 +881,30 @@ A17 = INDEX('Partner Options'!$D:$D, $M$2 + ROW() - 17)</code></pre>
     </div>
     <div class="callout">
       <p>
-        <b>Phyrexia: All Will Be One has no legal team at all.</b> Every color identity in the
-        set contains red or white, so nothing can pair with anything. Lorwyn Eclipsed has 17
-        commanders but only 7 teams — four are five-color and the set has no colorless
-        commander, leaving them with zero options.
+        <b>Phyrexia: All Will Be One has no legal pairing at all.</b> Every color identity
+        in that set contains red or white, so nothing can pair with anything. Lorwyn
+        Eclipsed has 17 commanders but only 7 pairings, because four of them are five-color
+        and the set ships no colorless commander to go with them.
       </p>
+      <p>
+        This is exactly the kind of thing that ruins a tournament: someone buys a product,
+        builds their deck, and finds out at the table that their partner has no legal
+        option.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Delivery</p>
+    <h2>And now, how do I get this to people</h2>
+    <div class="col">
+      <p>
+        Players are not going to run a script. So the end result is an <b>Excel
+        workbook</b>: you type your commander and it lists every commander your partner may
+        legally choose, with the set that makes them valid and which deck to find each one
+        in.
+      </p>
+      <p>The complete answer, in a spreadsheet that opens in two clicks.</p>
     </div>
   </section>
 
