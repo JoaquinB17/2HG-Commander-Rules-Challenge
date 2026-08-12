@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "two-headed-giant"
+version = "1.0.0"
+description = "Finds every legal Two-Headed Giant Commander team under a precon-set restriction, and ships the answer as an interactive Excel workbook."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["magic-the-gathering", "commander", "scryfall", "mtgjson", "excel"]
+
+dependencies = [
+    "requests>=2.31",
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    # Windows only: drives a real Excel instance for the Team Builder
+    # end-to-end tests, which skip automatically when it is unavailable.
+    "pywin32>=306; sys_platform == 'win32'",
+]
+
+[project.scripts]
+two-headed-giant = "two_headed_giant.cli:main"
+
+[tool.setuptools]
+packages = ["two_headed_giant"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

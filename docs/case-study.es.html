@@ -1,0 +1,927 @@
+<title>Two-Headed Giant Commander — Buscador de duplas</title>
+
+<style>
+  /* ---------------------------------------------------------------
+     Palette anchored on #1F3864 — the actual header fill used inside
+     the generated workbook. Gold is Magic's colorless-artifact cue,
+     which is exactly what the project's central bug turned on.
+     --------------------------------------------------------------- */
+  :root {
+    --ground:      #F4F6FA;
+    --surface:     #FFFFFF;
+    --surface-alt: #EAEEF6;
+    --rule:        #CFD8E8;
+    --ink:         #14203A;
+    --ink-soft:    #4A5876;
+    --ink-faint:   #78859F;
+    --anchor:      #1F3864;
+    --gold:        #A97A16;
+    --gold-soft:   #F0E2C0;
+    --ok:          #2F7351;
+    --bad:         #B23A32;
+
+    --mana-w: #C9BC8E;
+    --mana-u: #3B7BC4;
+    --mana-b: #4A4048;
+    --mana-r: #C1483F;
+    --mana-g: #3E8A5A;
+
+    --serif: Constantia, "Hoefler Text", "Iowan Old Style", Charter, Georgia, serif;
+    --sans:  "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --mono:  Consolas, "Cascadia Mono", "SF Mono", Menlo, "DejaVu Sans Mono", monospace;
+
+    --pad: clamp(1.25rem, 4vw, 3rem);
+
+    /* Reading column stays narrow; data blocks break out symmetrically by
+       --bleed, which collapses to 0 before it can cause sideways scroll. */
+    --column: 46rem;
+    --bleed: clamp(0px, calc((100vw - var(--column)) / 2 - var(--pad)), 9rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:      #0D1523;
+      --surface:     #141E33;
+      --surface-alt: #1B2740;
+      --rule:        #2B3A57;
+      --ink:         #E4EAF6;
+      --ink-soft:    #A6B4CE;
+      --ink-faint:   #7A88A4;
+      --anchor:      #7FA6DC;
+      --gold:        #D9AE55;
+      --gold-soft:   #3A2F17;
+      --ok:          #63B58C;
+      --bad:         #E2796F;
+      --mana-w: #D8CCA0;
+      --mana-b: #8A7E8C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #0D1523;
+    --surface:     #141E33;
+    --surface-alt: #1B2740;
+    --rule:        #2B3A57;
+    --ink:         #E4EAF6;
+    --ink-soft:    #A6B4CE;
+    --ink-faint:   #7A88A4;
+    --anchor:      #7FA6DC;
+    --gold:        #D9AE55;
+    --gold-soft:   #3A2F17;
+    --ok:          #63B58C;
+    --bad:         #E2796F;
+    --mana-w: #D8CCA0;
+    --mana-b: #8A7E8C;
+  }
+  :root[data-theme="light"] {
+    --ground:      #F4F6FA;
+    --surface:     #FFFFFF;
+    --surface-alt: #EAEEF6;
+    --rule:        #CFD8E8;
+    --ink:         #14203A;
+    --ink-soft:    #4A5876;
+    --ink-faint:   #78859F;
+    --anchor:      #1F3864;
+    --gold:        #A97A16;
+    --gold-soft:   #F0E2C0;
+    --ok:          #2F7351;
+    --bad:         #B23A32;
+    --mana-w: #C9BC8E;
+    --mana-b: #4A4048;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: 0 var(--pad) 5rem;
+  }
+
+  /* The wrap is already the measure, so .col is just a semantic marker.
+     Data blocks break out of it via a negative --bleed set in their own
+     margin shorthand, so nothing later in the cascade can reset it. */
+  .col { max-width: none; }
+
+  a {
+    color: var(--anchor);
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  a:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  code, .mono { font-family: var(--mono); font-size: 0.88em; }
+  code {
+    background: var(--surface-alt);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  /* ---------------- language switcher ---------------- */
+  nav.lang {
+    display: flex;
+    gap: 0.55rem;
+    padding-top: 1.6rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  nav.lang [aria-current="page"] { color: var(--ink); }
+  nav.lang a { color: var(--ink-faint); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  nav.lang a:hover { color: var(--anchor); border-bottom-color: var(--anchor); }
+
+  /* ---------------- masthead ---------------- */
+  header.masthead {
+    border-bottom: 1px solid var(--rule);
+    padding: clamp(1.75rem, 5vw, 3.25rem) 0 2.5rem;
+  }
+  header.masthead h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(2.3rem, 6vw, 4rem);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0.6rem 0 0;
+  }
+  .dek {
+    font-size: clamp(1.05rem, 2vw, 1.25rem);
+    color: var(--ink-soft);
+    margin: 1.1rem 0 0;
+    text-wrap: pretty;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 2.25rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+  }
+  .meta b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ---------------- stat band ---------------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 3rem calc(-1 * var(--bleed)) 0;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 1.4rem 1.25rem;
+  }
+  .stat .n {
+    font-family: var(--serif);
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .stat .l {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 0.55rem;
+  }
+
+  /* ---------------- sections ---------------- */
+  section { padding-top: 4.5rem; }
+  section > h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.6rem, 3.4vw, 2.15rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0.5rem 0 1.4rem;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-size: 1.05rem;
+    font-weight: 650;
+    letter-spacing: 0.005em;
+    margin: 1.9rem 0 0.5rem;
+  }
+  /* No leading gap when the heading already opens a block or follows its label;
+     in those cases the block above supplies the spacing. */
+  h3:first-child,
+  .eyebrow + h3 { margin-top: 0; }
+  p { margin: 0 0 1.15rem; text-wrap: pretty; }
+
+  .col ul, .col ol {
+    margin: 0 0 1.15rem;
+    padding-left: 1.35rem;
+  }
+  .col li { margin-bottom: 0.4rem; }
+  ol.questions {
+    list-style: none;
+    counter-reset: q;
+    padding-left: 0;
+  }
+  ol.questions li {
+    counter-increment: q;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.5rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  ol.questions li::before {
+    content: counter(q);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--gold);
+    padding-top: 0.15rem;
+  }
+
+  /* colour key, used where the five colours are introduced */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.1rem;
+    margin: 1.6rem 0 1.9rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  .legend .divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--rule);
+    margin: 0 0.35rem;
+  }
+
+  /* ---------------- constraint diagram ---------------- */
+  .board {
+    margin: 2rem calc(-1 * var(--bleed)) 2.75rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+  }
+  .matchup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    padding: 1.15rem 1.35rem;
+  }
+  .matchup + .matchup { border-top: 1px solid var(--rule); }
+  .seats { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem 1rem; }
+  .seat { display: flex; align-items: center; gap: 0.5rem; }
+  .seat .who {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .pips { display: flex; gap: 0.25rem; }
+  .pip {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.22);
+  }
+  /* Colourless is the absence of a colour, not a sixth one — it reads as a
+     hollow pip so it never sits alongside W/U/B/R/G as an equal. */
+  .pip.c {
+    background: var(--surface-alt);
+    color: var(--ink-soft);
+    border: 1px dashed var(--ink-faint);
+  }
+  .pip.w { background: var(--mana-w); color: #2A2412; }
+  .pip.u { background: var(--mana-u); }
+  .pip.b { background: var(--mana-b); }
+  .pip.r { background: var(--mana-r); }
+  .pip.g { background: var(--mana-g); }
+  .pip.clash {
+    box-shadow: 0 0 0 2px var(--ground), 0 0 0 4px var(--bad);
+  }
+  .plus { color: var(--ink-faint); font-family: var(--mono); }
+  .verdict {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+  }
+  .verdict.yes { color: var(--ok); }
+  .verdict.no  { color: var(--bad); }
+  .board figcaption {
+    border-top: 1px solid var(--rule);
+    background: var(--surface-alt);
+    padding: 0.85rem 1.35rem;
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+  }
+
+  /* ---------------- decisions ---------------- */
+  .decision {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.75rem;
+    margin-top: 2.5rem;
+  }
+  .decision > .eyebrow { margin-bottom: 0.55rem; }
+
+  .quote {
+    margin: 1.5rem 0;
+    padding: 0.2rem 0 0.2rem 1.15rem;
+    border-left: 3px solid var(--gold);
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    max-width: 58ch;
+  }
+
+  .scroll { overflow-x: auto; margin: 1.75rem calc(-1 * var(--bleed)); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 30rem;
+    font-size: 0.9rem;
+  }
+  caption {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: 0.6rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    border-bottom-color: var(--ink-faint);
+  }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+  tbody tr:last-child td { border-bottom: none; }
+  .flag { color: var(--bad); font-weight: 700; }
+  .gain { color: var(--ok); font-weight: 700; }
+
+  .callout {
+    margin: 2rem 0;
+    background: var(--gold-soft);
+    border-left: 3px solid var(--gold);
+    padding: 1.1rem 1.35rem;
+    font-size: 0.95rem;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout b { color: var(--ink); }
+
+  pre {
+    margin: 1.5rem calc(-1 * var(--bleed));
+    padding: 1.1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--anchor);
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .cmt { color: var(--ink-faint); }
+
+  /* ---------------- test layers ---------------- */
+  .layers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 2rem calc(-1 * var(--bleed));
+  }
+  .layer { background: var(--surface); padding: 1.3rem 1.25rem; }
+  .layer .count {
+    font-family: var(--serif);
+    font-size: 2rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .layer .name {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--gold);
+    margin: 0.5rem 0 0.6rem;
+    word-break: break-all;
+  }
+  .layer p { font-size: 0.88rem; color: var(--ink-soft); margin: 0; }
+
+  footer {
+    margin-top: 5rem;
+    border-top: 1px solid var(--rule);
+    padding-top: 1.75rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .stat, .layer { transition: background-color 0.2s ease; }
+  }
+
+  @media (max-width: 34rem) {
+    body { font-size: 16px; }
+    .matchup { grid-template-columns: 1fr; }
+    .verdict { justify-self: start; }
+    .meta { gap: 0.4rem 1.25rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <nav class="lang" aria-label="Idioma">
+    <a href="https://joaquinb17.github.io/2HG-Commander-Rules-Challenge/case-study.html">English</a>
+    <span aria-hidden="true">·</span>
+    <span aria-current="page">Español</span>
+  </nav>
+
+  <header class="masthead">
+    <p class="eyebrow">Caso de estudio · Python · reconciliación de datos · Excel</p>
+    <h1>El Dilema de los Gigantes</h1>
+    <p class="dek">
+      Un torneo local inventó dos reglas para armar equipos. Una es trivial. La otra
+      obliga a revisar 159 mazos preconstruidos carta por carta. Esta es la historia de
+      cómo se resolvió, contada sin dar por sentado que sabes jugar Magic.
+    </p>
+    <div class="meta">
+      <span><b>Rol</b> &nbsp;Único desarrollador</span>
+      <span><b>Stack</b> &nbsp;Python, pandas, openpyxl, pytest</span>
+      <span><b>Fuentes</b> &nbsp;Scryfall, MTGJSON</span>
+      <span><b>Entrega</b> &nbsp;.xlsx interactivo</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">44</div><div class="l">Sets precon</div></div>
+    <div class="stat"><div class="n">159</div><div class="l">Mazos</div></div>
+    <div class="stat"><div class="n">1.055</div><div class="l">Comandantes</div></div>
+    <div class="stat"><div class="n">551</div><div class="l">Duplas de partner</div></div>
+    <div class="stat"><div class="n">21.699</div><div class="l">Duplas legales</div></div>
+  </div>
+
+  <section>
+    <p class="eyebrow">Contexto</p>
+    <h2>Lo mínimo que hay que saber</h2>
+    <div class="col">
+      <p>
+        Magic: The Gathering es un juego de cartas complejo y tiene muchas formas de
+        jugarse. Para que se entienda el dilema que enfrentaba un torneo local, voy a
+        definir un par de cosas de la forma más sencilla posible.
+      </p>
+      <p>
+        El juego se define por su sistema de <b>colores</b>. En inglés son White, Blue,
+        Black, Red y Green, y de aquí en adelante voy a usar sus letras (la U es por
+        bl<b>U</b>e, porque la B ya se la llevó Black):
+      </p>
+    </div>
+
+    <div class="legend">
+      <span class="chip"><i class="pip w">W</i> Blanco</span>
+      <span class="chip"><i class="pip u">U</i> Azul</span>
+      <span class="chip"><i class="pip b">B</i> Negro</span>
+      <span class="chip"><i class="pip r">R</i> Rojo</span>
+      <span class="chip"><i class="pip g">G</i> Verde</span>
+      <span class="divider"></span>
+      <span class="chip"><i class="pip c">C</i> Incoloro</span>
+    </div>
+
+    <div class="col">
+      <p>
+        Los colores representan distintos tipos de magia y de criaturas, y al mismo
+        tiempo funcionan como una limitante.
+      </p>
+      <p>
+        Esa última no es un sexto color: es la <b>ausencia</b> de color. Hay cartas que
+        no pertenecen a ninguno de los cinco, y las voy a marcar con una <b>C</b>. Vale
+        la pena retenerlo, porque más adelante resulta clave: un comandante incoloro
+        puede acompañar a cualquier mazo con color, incluso a uno de cinco colores.
+      </p>
+      <p>
+        Lo que <b>no</b> puede es emparejarse con otro incoloro. El torneo trata la
+        ausencia de color como una identidad propia, así que dos comandantes incoloros
+        la comparten y la dupla queda fuera. Son 34 combinaciones que a primera vista
+        parecen válidas y no lo son.
+      </p>
+      <p>
+        Entra <b>Commander</b>, una forma de jugar donde eliges un «comandante» que
+        representa a tu mazo y que define a qué colores tienes acceso. Por ejemplo: si tu
+        comandante es «Mooriel, la Vaca Guerrera» y ella es blanca y negra, solo puedes
+        usar cartas de esos dos colores. Te cierra los otros tres. Además no puedes
+        repetir cartas —una sola copia de cada una, salvo las tierras básicas—. Es una
+        limitante que invita a la creatividad.
+      </p>
+      <p>
+        El formato se volvió tan popular en parte gracias a los <b>mazos
+        preconstruidos</b>: mazos diseñados para jugarse directamente, sin cambios, apenas
+        los sacas de la caja.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">El torneo</p>
+    <h2>Dos reglas: una trivial y una brutal</h2>
+    <div class="col">
+      <p>
+        Aquí es donde se pone complicado. El torneo usaba el formato <b>Gigante de Dos
+        Cabezas</b> (<i>Two-Headed Giant</i>), que es como se conoce oficialmente al juego
+        por equipos: 2 contra 2. Y este torneo quería ser único en cómo se formaban los
+        equipos, con dos reglas que convierten la elección de compañero en un dolor de
+        cabeza.
+      </p>
+      <h3>Regla 1 — Tú y tu compañero no pueden compartir colores</h3>
+      <p>
+        Si mi mazo usa todos los colores menos el azul, entonces el mazo de mi compañero
+        tiene que ser azul y nada más.
+      </p>
+    </div>
+
+    <figure class="board">
+      <div class="matchup">
+        <div class="seats">
+          <div class="seat">
+            <span class="who">Tú</span>
+            <span class="pips"><i class="pip w">W</i><i class="pip u">U</i><i class="pip r">R</i></span>
+          </div>
+          <span class="plus">+</span>
+          <div class="seat">
+            <span class="who">Compañero</span>
+            <span class="pips"><i class="pip b">B</i><i class="pip g">G</i></span>
+          </div>
+        </div>
+        <span class="verdict yes">Legal</span>
+      </div>
+      <div class="matchup">
+        <div class="seats">
+          <div class="seat">
+            <span class="who">Tú</span>
+            <span class="pips"><i class="pip w clash">W</i><i class="pip u">U</i><i class="pip r">R</i></span>
+          </div>
+          <span class="plus">+</span>
+          <div class="seat">
+            <span class="who">Compañero</span>
+            <span class="pips"><i class="pip w clash">W</i><i class="pip b">B</i></span>
+          </div>
+        </div>
+        <span class="verdict no">Comparten blanco</span>
+      </div>
+      <div class="matchup">
+        <div class="seats">
+          <div class="seat">
+            <span class="who">Tú</span>
+            <span class="pips"><i class="pip w">W</i><i class="pip u">U</i><i class="pip b">B</i><i class="pip r">R</i><i class="pip g">G</i></span>
+          </div>
+          <span class="plus">+</span>
+          <div class="seat">
+            <span class="who">Compañero</span>
+            <span class="pips"><i class="pip c">C</i></span>
+          </div>
+        </div>
+        <span class="verdict yes">Legal</span>
+      </div>
+      <figcaption>
+        No es ciencia espacial. Es sencillo, y no necesita ninguna solución especial.
+      </figcaption>
+    </figure>
+
+    <div class="col">
+      <h3>Regla 2 — Ambos comandantes deben haber aparecido en el mismo mazo preconstruido</h3>
+      <p>Y aquí está el problema.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">El tamaño del problema</p>
+    <h2>15.900 espacios de carta que revisar</h2>
+    <div class="col">
+      <p>
+        Al momento de escribir esto hay <b>44 sets</b> de mazos preconstruidos legales
+        publicados desde 2011, con un total de <b>159 mazos</b> individuales. Cada uno
+        trae 100 cartas, así que estamos mirando <b>15.900 espacios de carta</b> —unas
+        <b>6.012 cartas distintas</b> una vez que descuentas todo lo que se repite entre
+        mazos—.
+      </p>
+      <p>
+        Para decidir si una dupla es legal o no, primero hay que responder cuatro
+        preguntas:
+      </p>
+      <ol class="questions">
+        <li>¿De dónde saco los datos de estas cartas?</li>
+        <li>¿Cuántas de estas cartas pueden ser comandantes?</li>
+        <li>¿Hay casos especiales?</li>
+        <li>¿Cuántas duplas legales existen?</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Preguntas 1 y 2</p>
+    <h2>De dónde salen los datos, y quién puede ser comandante</h2>
+    <div class="col">
+      <p>
+        Se responden con dos herramientas poderosas: <b>MTGJSON</b> y <b>Scryfall</b>.
+        Magic es un juego tan popular que ha motivado la creación de herramientas para
+        seguirle la pista a reglas, historia, cartas, ediciones y colecciones.
+      </p>
+      <p>
+        MTGJSON mantiene una base de datos con las listas de los mazos preconstruidos,
+        listas para examinar: esa va a ser nuestra lista de cartas. Scryfall es la base de
+        datos más completa del juego, y nos va a servir para determinar los colores y para
+        saber qué cartas pueden ser comandantes.
+      </p>
+      <p>
+        La mejor forma es tomar las cartas de los mazos y pasarlas por el filtro
+        <code>is:commander</code> de Scryfall. Según las reglas, un comandante debe ser:
+      </p>
+      <ul>
+        <li>una <b>criatura, estación o vehículo legendario</b>, o</li>
+        <li>una carta tipo <b>planeswalker</b> que diga explícitamente «puede ser tu comandante».</li>
+      </ul>
+    </div>
+
+    <div class="callout">
+      <p>
+        Si uno buscara a mano con esos dos criterios, se encontraría con excepciones. La
+        más notoria es <b>Grist, the Hunger Tide</b>, que legalmente es un comandante pero
+        no cumple ni con el primer criterio ni con el segundo. No voy a entrar en detalles,
+        pero Grist es un dolor de cabeza dentro de las reglas por cómo está redactada, y
+        precisamente por eso <b>no</b> usar <code>is:commander</code> la dejaría fuera sin
+        que uno se diera cuenta.
+      </p>
+    </div>
+
+    <div class="col">
+      <p>Con el filtro aplicado, el total queda en <b>1.055 comandantes posibles</b>.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Pregunta 3</p>
+    <h2>Los casos especiales</h2>
+    <div class="col">
+      <p>Y aquí se pone todavía más complejo.</p>
+      <p>
+        Normalmente tienes un solo comandante, pero hay cartas que te dejan tener
+        <b>dos</b>. Y dependiendo de cuál sea la mecánica, la cosa se complica.
+      </p>
+      <p>
+        <b>Partner.</b> Cartas que puedes emparejar libremente entre ellas. Hay <b>27</b>
+        en los preconstruidos, y como cada una puede ser de hasta 2 colores, una dupla
+        puede llegar a 4 colores.
+      </p>
+      <p>
+        <b>Partner with.</b> Cartas que tienen un compañero muy específico, listado en la
+        propia carta. Mucho más sencillo de manejar: cada una tiene exactamente una pareja
+        posible.
+      </p>
+      <p>
+        <b>Doctor's companion.</b> Introducida en el set de Doctor Who. Deja que una carta
+        con esa habilidad sea tu segundo comandante si tu comandante principal es un
+        <i>Time Lord Doctor</i>. Son 41 cartas en total: <b>15 doctores</b> y
+        <b>26 compañeros</b>.
+      </p>
+      <p>
+        <b>Choose a Background.</b> Aplica a <b>4 criaturas</b> que pueden emparejarse con
+        <b>4 cartas</b> que definen su trasfondo.
+      </p>
+      <p>
+        <b>Character select.</b> <b>6 criaturas</b> que puedes emparejar entre sí.
+      </p>
+    </div>
+
+    <div class="decision">
+      <p class="eyebrow">Dónde la regla 2 muerde de verdad</p>
+      <h3>Por qué esto no se resuelve multiplicando en una servilleta</h3>
+      <div class="col">
+        <p>
+          Doctor's companion vive entero dentro de un set (Doctor Who). Character select
+          vive entero en otro (Tortugas Ninja). Los Backgrounds, en Baldur's Gate. Como
+          cada mecánica está contenida en un solo set, la regla del «mismo mazo
+          preconstruido» no elimina nada, y multiplicar da el número correcto:
+        </p>
+      </div>
+      <div class="scroll">
+        <table>
+          <caption>Mecánicas contenidas en un solo set</caption>
+          <thead>
+            <tr><th>Mecánica</th><th>Cuentas</th><th class="num">Duplas legales</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">Doctor's companion</td><td>15 doctores × 26 compañeros</td><td class="num">390</td></tr>
+            <tr><td class="mono">Choose a Background</td><td>4 criaturas × 4 trasfondos</td><td class="num">16</td></tr>
+            <tr><td class="mono">Character select</td><td>6 criaturas entre sí</td><td class="num">15</td></tr>
+            <tr><td class="mono">Partner with</td><td>cada una con su única pareja</td><td class="num">14</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col">
+        <p>
+          <b>Partner es la excepción</b>, y por eso es la interesante. Sus 27 cartas están
+          repartidas en <b>10 sets distintos</b>. Si todas combinaran con todas serían
+          <b>351 duplas</b>. Pero la regla 2 exige que ambas hayan salido en el mismo
+          preconstruido, y eso las deja en <b>116</b>.
+        </p>
+        <p>
+          De hecho, 105 de esas 116 vienen de un solo producto: <b>Commander 2016</b>, que
+          por sí solo trae 15 cartas con Partner. Las otras 11 salen repartidas entre los
+          nueve sets restantes.
+        </p>
+        <p>En total: <b>551 duplas de partner</b> legales.</p>
+      </div>
+    </div>
+
+    <div class="decision">
+      <p class="eyebrow">Dato curioso</p>
+      <h3>Por qué Commander 2016 es el mejor producto del torneo</h3>
+      <div class="col">
+        <p>
+          Vale la pena detenerse en C16, porque no solo aporta la mayor cantidad de duplas:
+          son también las <b>más flexibles</b>, y eso importa muchísimo cuando la regla 1 te
+          obliga a no pisarle los colores a tu compañero.
+        </p>
+        <p>
+          Sus 15 cartas con Partner son <b>todas exactamente de dos colores</b>, y entre
+          ellas cubren <b>las diez combinaciones de dos colores que existen</b> en el juego.
+          No falta ninguna.
+        </p>
+      </div>
+      <div class="scroll">
+        <table>
+          <caption>Cobertura de color por set</caption>
+          <thead>
+            <tr><th>Set</th><th class="num">Duplas</th><th class="num">Identidades de color distintas</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Commander 2016</td><td class="num">105</td><td class="num gain">20</td></tr>
+            <tr><td>Doctor Who</td><td class="num">392</td><td class="num">14</td></tr>
+            <tr><td>Baldur's Gate</td><td class="num">17</td><td class="num">13</td></tr>
+            <tr><td>Tortugas Ninja</td><td class="num">16</td><td class="num">8</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col">
+        <p>
+          De esas 105 duplas, 65 llegan a tres colores y 35 llegan a cuatro. Es decir: con
+          C16 puedes armar un mazo de cuatro colores y dejarle a tu compañero un único
+          color, o repartirse tres y dos. Casi cualquier reparto que se les ocurra tiene una
+          dupla que lo soporta.
+        </p>
+        <p>
+          Y como dato curioso, esa flexibilidad viene acompañada de poder bruto. Los
+          partners de C16 —<b>Thrasios, Triton Hero</b>, <b>Tymna the Weaver</b>,
+          <b>Vial Smasher the Fierce</b>, <b>Kraum, Ludevic's Opus</b>— son cartas básicas
+          del Commander competitivo desde hace años; la dupla Thrasios + Tymna es
+          probablemente la más conocida del formato. Wizards imprimió un producto pensado
+          para que las cartas se combinaran entre sí, y una década después resulta ser
+          exactamente lo que este torneo premia.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Pregunta 4</p>
+    <h2>Cuántas duplas legales existen</h2>
+    <div class="col">
+      <p>
+        Sumando todo, un «asiento» en un equipo no es una carta: es <b>una carta o una
+        dupla legal</b>. Eso da <b>1.602 configuraciones posibles</b> de comandante.
+      </p>
+      <p>
+        Y recién ahí se puede responder la pregunta original, cruzando cada configuración
+        contra todas las demás y filtrando por las dos reglas:
+      </p>
+    </div>
+    <blockquote class="quote">
+      21.699 duplas legales.
+    </blockquote>
+    <div class="col">
+      <p>
+        De esas, 11.534 son un comandante por lado, y 10.165 involucran al menos una dupla
+        de partner.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Hallazgos</p>
+    <h2>Lo que apareció al final</h2>
+    <div class="col">
+      <p>
+        Cuando por fin puedes enumerar todas las duplas, aparece algo que nadie había
+        notado: el formato es <b>muy</b> disparejo.
+      </p>
+    </div>
+    <div class="scroll">
+      <table>
+        <caption>Viabilidad por set</caption>
+        <thead>
+          <tr><th>Set</th><th class="num">Comandantes</th><th class="num">Sin compañero posible</th><th class="num">Duplas legales</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Phyrexia: All Will Be One</td><td class="num">7</td><td class="num flag">7</td><td class="num flag">0</td></tr>
+          <tr><td>Lorwyn Eclipsed</td><td class="num">17</td><td class="num">10</td><td class="num">7</td></tr>
+          <tr><td>Modern Horizons 3</td><td class="num">19</td><td class="num">6</td><td class="num">34</td></tr>
+          <tr><td>Doctor Who</td><td class="num">78</td><td class="num">0</td><td class="num">10.582</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>
+        <b>Phyrexia: All Will Be One no tiene ninguna dupla legal.</b> Todas las identidades
+        de color de ese set contienen rojo o blanco, así que nada puede emparejarse con
+        nada. Lorwyn Eclipsed tiene 17 comandantes pero solo 7 duplas, porque cuatro de
+        ellos son de cinco colores y el set no trae ningún comandante incoloro que los
+        acompañe.
+      </p>
+      <p>
+        Es exactamente el tipo de cosa que arruina un torneo: alguien compra un producto,
+        arma su mazo, y descubre en la mesa que su compañero no tiene ninguna opción legal.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">La entrega</p>
+    <h2>Y ahora, cómo se lo comunico a la gente</h2>
+    <div class="col">
+      <p>
+        Los jugadores no van a correr un script. Así que el resultado final es un
+        <b>libro de Excel</b>: escribes tu comandante y te lista todos los comandantes que
+        tu compañero puede elegir legalmente, con el set que los hace válidos y en qué mazo
+        encontrar cada uno.
+      </p>
+      <p>La respuesta completa, en una planilla que se abre en dos clics.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Python · pandas · openpyxl · pytest · pywin32</span>
+    <span>Datos: Scryfall y MTGJSON</span>
+    <span>Sin relación con Wizards of the Coast</span>
+  </footer>
+
+</div>

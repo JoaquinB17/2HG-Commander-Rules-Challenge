@@ -1,0 +1,26 @@
+# Cached API responses — ~130 MB, rebuilt with `python -m two_headed_giant --refresh`
+data/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Excel lock files, left behind when a workbook is open
+~$*.xlsx
+
+# Local agent/tooling config
+.claude/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

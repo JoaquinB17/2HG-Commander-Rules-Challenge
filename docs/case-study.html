@@ -1,0 +1,816 @@
+<title>Two-Headed Giant Commander — Team Finder</title>
+
+<style>
+  /* ---------------------------------------------------------------
+     Palette anchored on #1F3864 — the actual header fill used inside
+     the generated workbook. Gold is Magic's colorless-artifact cue,
+     which is exactly what the project's central bug turned on.
+     --------------------------------------------------------------- */
+  :root {
+    --ground:      #F4F6FA;
+    --surface:     #FFFFFF;
+    --surface-alt: #EAEEF6;
+    --rule:        #CFD8E8;
+    --ink:         #14203A;
+    --ink-soft:    #4A5876;
+    --ink-faint:   #78859F;
+    --anchor:      #1F3864;
+    --gold:        #A97A16;
+    --gold-soft:   #F0E2C0;
+    --ok:          #2F7351;
+    --bad:         #B23A32;
+
+    --mana-w: #C9BC8E;
+    --mana-u: #3B7BC4;
+    --mana-b: #4A4048;
+    --mana-r: #C1483F;
+    --mana-g: #3E8A5A;
+
+    --serif: Constantia, "Hoefler Text", "Iowan Old Style", Charter, Georgia, serif;
+    --sans:  "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --mono:  Consolas, "Cascadia Mono", "SF Mono", Menlo, "DejaVu Sans Mono", monospace;
+
+    --pad: clamp(1.25rem, 4vw, 3rem);
+
+    /* Reading column stays narrow; data blocks break out symmetrically by
+       --bleed, which collapses to 0 before it can cause sideways scroll. */
+    --column: 46rem;
+    --bleed: clamp(0px, calc((100vw - var(--column)) / 2 - var(--pad)), 9rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:      #0D1523;
+      --surface:     #141E33;
+      --surface-alt: #1B2740;
+      --rule:        #2B3A57;
+      --ink:         #E4EAF6;
+      --ink-soft:    #A6B4CE;
+      --ink-faint:   #7A88A4;
+      --anchor:      #7FA6DC;
+      --gold:        #D9AE55;
+      --gold-soft:   #3A2F17;
+      --ok:          #63B58C;
+      --bad:         #E2796F;
+      --mana-w: #D8CCA0;
+      --mana-b: #8A7E8C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #0D1523;
+    --surface:     #141E33;
+    --surface-alt: #1B2740;
+    --rule:        #2B3A57;
+    --ink:         #E4EAF6;
+    --ink-soft:    #A6B4CE;
+    --ink-faint:   #7A88A4;
+    --anchor:      #7FA6DC;
+    --gold:        #D9AE55;
+    --gold-soft:   #3A2F17;
+    --ok:          #63B58C;
+    --bad:         #E2796F;
+    --mana-w: #D8CCA0;
+    --mana-b: #8A7E8C;
+  }
+  :root[data-theme="light"] {
+    --ground:      #F4F6FA;
+    --surface:     #FFFFFF;
+    --surface-alt: #EAEEF6;
+    --rule:        #CFD8E8;
+    --ink:         #14203A;
+    --ink-soft:    #4A5876;
+    --ink-faint:   #78859F;
+    --anchor:      #1F3864;
+    --gold:        #A97A16;
+    --gold-soft:   #F0E2C0;
+    --ok:          #2F7351;
+    --bad:         #B23A32;
+    --mana-w: #C9BC8E;
+    --mana-b: #4A4048;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: 0 var(--pad) 5rem;
+  }
+
+  /* The wrap is already the measure, so .col is just a semantic marker.
+     Data blocks break out of it via a negative --bleed set in their own
+     margin shorthand, so nothing later in the cascade can reset it. */
+  .col { max-width: none; }
+
+  a {
+    color: var(--anchor);
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  a:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  code, .mono { font-family: var(--mono); font-size: 0.88em; }
+  code {
+    background: var(--surface-alt);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  /* ---------------- language switcher ---------------- */
+  nav.lang {
+    display: flex;
+    gap: 0.55rem;
+    padding-top: 1.6rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  nav.lang [aria-current="page"] { color: var(--ink); }
+  nav.lang a { color: var(--ink-faint); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  nav.lang a:hover { color: var(--anchor); border-bottom-color: var(--anchor); }
+
+  /* ---------------- masthead ---------------- */
+  header.masthead {
+    border-bottom: 1px solid var(--rule);
+    padding: clamp(1.75rem, 5vw, 3.25rem) 0 2.5rem;
+  }
+  header.masthead h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(2.3rem, 6vw, 4rem);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0.6rem 0 0;
+  }
+  .dek {
+    font-size: clamp(1.05rem, 2vw, 1.25rem);
+    color: var(--ink-soft);
+    margin: 1.1rem 0 0;
+    text-wrap: pretty;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 2.25rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+  }
+  .meta b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ---------------- stat band ---------------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 3rem calc(-1 * var(--bleed)) 0;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 1.4rem 1.25rem;
+  }
+  .stat .n {
+    font-family: var(--serif);
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .stat .l {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 0.55rem;
+  }
+
+  /* ---------------- sections ---------------- */
+  section { padding-top: 4.5rem; }
+  section > h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.6rem, 3.4vw, 2.15rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0.5rem 0 1.4rem;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-size: 1.05rem;
+    font-weight: 650;
+    letter-spacing: 0.005em;
+    margin: 1.9rem 0 0.5rem;
+  }
+  /* No leading gap when the heading already opens a block or follows its label;
+     in those cases the block above supplies the spacing. */
+  h3:first-child,
+  .eyebrow + h3 { margin-top: 0; }
+  p { margin: 0 0 1.15rem; text-wrap: pretty; }
+
+  .col ul, .col ol {
+    margin: 0 0 1.15rem;
+    padding-left: 1.35rem;
+  }
+  .col li { margin-bottom: 0.4rem; }
+  ol.questions {
+    list-style: none;
+    counter-reset: q;
+    padding-left: 0;
+  }
+  ol.questions li {
+    counter-increment: q;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.5rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  ol.questions li::before {
+    content: counter(q);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--gold);
+    padding-top: 0.15rem;
+  }
+
+  /* colour key, used where the five colours are introduced */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.1rem;
+    margin: 1.6rem 0 1.9rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  .legend .divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--rule);
+    margin: 0 0.35rem;
+  }
+
+  /* ---------------- constraint diagram ---------------- */
+  .board {
+    margin: 2rem calc(-1 * var(--bleed)) 2.75rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+  }
+  .matchup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    padding: 1.15rem 1.35rem;
+  }
+  .matchup + .matchup { border-top: 1px solid var(--rule); }
+  .seats { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem 1rem; }
+  .seat { display: flex; align-items: center; gap: 0.5rem; }
+  .seat .who {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .pips { display: flex; gap: 0.25rem; }
+  .pip {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.22);
+  }
+  /* Colourless is the absence of a colour, not a sixth one — it reads as a
+     hollow pip so it never sits alongside W/U/B/R/G as an equal. */
+  .pip.c {
+    background: var(--surface-alt);
+    color: var(--ink-soft);
+    border: 1px dashed var(--ink-faint);
+  }
+  .pip.w { background: var(--mana-w); color: #2A2412; }
+  .pip.u { background: var(--mana-u); }
+  .pip.b { background: var(--mana-b); }
+  .pip.r { background: var(--mana-r); }
+  .pip.g { background: var(--mana-g); }
+  .pip.clash {
+    box-shadow: 0 0 0 2px var(--ground), 0 0 0 4px var(--bad);
+  }
+  .plus { color: var(--ink-faint); font-family: var(--mono); }
+  .verdict {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+  }
+  .verdict.yes { color: var(--ok); }
+  .verdict.no  { color: var(--bad); }
+  .board figcaption {
+    border-top: 1px solid var(--rule);
+    background: var(--surface-alt);
+    padding: 0.85rem 1.35rem;
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+  }
+
+  /* ---------------- decisions ---------------- */
+  .decision {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.75rem;
+    margin-top: 2.5rem;
+  }
+  .decision > .eyebrow { margin-bottom: 0.55rem; }
+
+  .quote {
+    margin: 1.5rem 0;
+    padding: 0.2rem 0 0.2rem 1.15rem;
+    border-left: 3px solid var(--gold);
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    max-width: 58ch;
+  }
+
+  .scroll { overflow-x: auto; margin: 1.75rem calc(-1 * var(--bleed)); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 30rem;
+    font-size: 0.9rem;
+  }
+  caption {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: 0.6rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    border-bottom-color: var(--ink-faint);
+  }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+  tbody tr:last-child td { border-bottom: none; }
+  .flag { color: var(--bad); font-weight: 700; }
+  .gain { color: var(--ok); font-weight: 700; }
+
+  .callout {
+    margin: 2rem 0;
+    background: var(--gold-soft);
+    border-left: 3px solid var(--gold);
+    padding: 1.1rem 1.35rem;
+    font-size: 0.95rem;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout b { color: var(--ink); }
+
+  pre {
+    margin: 1.5rem calc(-1 * var(--bleed));
+    padding: 1.1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--anchor);
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .cmt { color: var(--ink-faint); }
+
+  /* ---------------- test layers ---------------- */
+  .layers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 2rem calc(-1 * var(--bleed));
+  }
+  .layer { background: var(--surface); padding: 1.3rem 1.25rem; }
+  .layer .count {
+    font-family: var(--serif);
+    font-size: 2rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .layer .name {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--gold);
+    margin: 0.5rem 0 0.6rem;
+    word-break: break-all;
+  }
+  .layer p { font-size: 0.88rem; color: var(--ink-soft); margin: 0; }
+
+  footer {
+    margin-top: 5rem;
+    border-top: 1px solid var(--rule);
+    padding-top: 1.75rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .stat, .layer { transition: background-color 0.2s ease; }
+  }
+
+  @media (max-width: 34rem) {
+    body { font-size: 16px; }
+    .matchup { grid-template-columns: 1fr; }
+    .verdict { justify-self: start; }
+    .meta { gap: 0.4rem 1.25rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <nav class="lang" aria-label="Language">
+    <span aria-current="page">English</span>
+    <span aria-hidden="true">·</span>
+    <a href="https://joaquinb17.github.io/2HG-Commander-Rules-Challenge/case-study.es.html">Español</a>
+  </nav>
+
+  <header class="masthead">
+    <p class="eyebrow">Case study · Python · data reconciliation · Excel</p>
+    <h1>Every legal team in a tournament nobody could compute by hand</h1>
+    <p class="dek">
+      A local Two-Headed Giant Commander event added one house rule that quietly turned
+      deckbuilding into a constraint-satisfaction problem. This finds all 21,699 valid
+      answers and hands them back as a spreadsheet people can actually use.
+    </p>
+    <div class="meta">
+      <span><b>Role</b> &nbsp;Sole engineer</span>
+      <span><b>Stack</b> &nbsp;Python, pandas, openpyxl, pytest</span>
+      <span><b>Sources</b> &nbsp;Scryfall, MTGJSON</span>
+      <span><b>Output</b> &nbsp;Interactive .xlsx</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">21,699</div><div class="l">Legal teams</div></div>
+    <div class="stat"><div class="n">1,055</div><div class="l">Eligible commanders</div></div>
+    <div class="stat"><div class="n">44</div><div class="l">Precon sets</div></div>
+    <div class="stat"><div class="n">551</div><div class="l">Partner pairs</div></div>
+    <div class="stat"><div class="n">53</div><div class="l">Tests</div></div>
+  </div>
+
+  <section>
+    <p class="eyebrow">The problem</p>
+    <h2>Two constraints that interact badly</h2>
+    <div class="col">
+      <p>
+        Two-Headed Giant is a team format — you and your partner sit on the same side.
+        The tournament's house rule says your two commanders must both have been printed
+        in the <em>same preconstructed deck set</em>, and their color identities must not
+        overlap. Reprints count, and any legendary card in the deck counts, not just the
+        one on the box.
+      </p>
+      <p>
+        Neither rule is hard alone. Together they eliminate almost everything, and the
+        surviving combinations are impossible to eyeball across 159 decklists.
+      </p>
+    </div>
+
+    <figure class="board">
+      <div class="matchup">
+        <div class="seats">
+          <div class="seat">
+            <span class="who">You</span>
+            <span class="pips"><i class="pip w">W</i><i class="pip u">U</i><i class="pip r">R</i></span>
+          </div>
+          <span class="plus">+</span>
+          <div class="seat">
+            <span class="who">Partner</span>
+            <span class="pips"><i class="pip b">B</i><i class="pip g">G</i></span>
+          </div>
+        </div>
+        <span class="verdict yes">Legal</span>
+      </div>
+      <div class="matchup">
+        <div class="seats">
+          <div class="seat">
+            <span class="who">You</span>
+            <span class="pips"><i class="pip w clash">W</i><i class="pip u">U</i><i class="pip r">R</i></span>
+          </div>
+          <span class="plus">+</span>
+          <div class="seat">
+            <span class="who">Partner</span>
+            <span class="pips"><i class="pip w clash">W</i><i class="pip b">B</i></span>
+          </div>
+        </div>
+        <span class="verdict no">Shares white</span>
+      </div>
+      <div class="matchup">
+        <div class="seats">
+          <div class="seat">
+            <span class="who">You</span>
+            <span class="pips"><i class="pip w">W</i><i class="pip u">U</i><i class="pip b">B</i><i class="pip r">R</i><i class="pip g">G</i></span>
+          </div>
+          <span class="plus">+</span>
+          <div class="seat">
+            <span class="who">Partner</span>
+            <span class="pips"><i class="pip c">C</i></span>
+          </div>
+        </div>
+        <span class="verdict yes">Legal</span>
+      </div>
+      <figcaption>
+        Play five colors and your partner is limited to colorless — which is why sets
+        without a colorless commander strand their five-color legends entirely.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow">Engineering</p>
+    <h2>Three decisions that changed the answer</h2>
+
+    <div class="decision">
+      <p class="eyebrow">01 · Source of truth</p>
+      <h3>Decklists, not set membership</h3>
+      <div class="col">
+        <p>
+          The obvious query — every commander-legal card whose set is a Commander set —
+          is wrong, and quietly so. Those set codes also cover Special Guests,
+          booster-only cards and Jumpstart reprints that were never in a precon.
+        </p>
+        <p>
+          Eligibility now comes from actual decklists: a card counts only if it is
+          physically one of the 100 cards. The same change correctly <em>keeps</em> cards
+          whose printing carries the parent expansion's code.
+        </p>
+      </div>
+      <div class="scroll">
+        <table>
+          <caption>Eligible commanders, before and after</caption>
+          <thead>
+            <tr><th>Set</th><th class="num">Set-code query</th><th class="num">Real decklists</th><th class="num">Removed</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Marvel Super Heroes</td><td class="num">251</td><td class="num">88</td><td class="num flag">−163</td></tr>
+            <tr><td>Dominaria United</td><td class="num">65</td><td class="num">41</td><td class="num flag">−24</td></tr>
+            <tr><td>Kamigawa: Neon Dynasty</td><td class="num">26</td><td class="num">15</td><td class="num flag">−11</td></tr>
+            <tr><td>Bloomburrow</td><td class="num">35</td><td class="num">27</td><td class="num flag">−8</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="decision">
+      <p class="eyebrow">02 · Rules that move</p>
+      <h3>Delegate the ruling, don't reimplement it</h3>
+      <div class="col">
+        <p>
+          Eligibility started as a local test: <em>a legendary creature, or text saying it
+          can be your commander</em>. That is the kind of rule that looks correct and rots
+          silently. A rules change made legendary Vehicles and Spacecraft legal
+          commanders — and they carry no such text, so no wording test can ever find them.
+        </p>
+        <p>
+          Eligibility is now delegated to Scryfall's <code>is:commander</code> filter, which
+          tracks rules changes on my behalf. Adopting it added 15 cards and removed none.
+        </p>
+      </div>
+      <div class="scroll">
+        <table>
+          <caption>Cards recovered by delegating</caption>
+          <thead>
+            <tr><th>Type</th><th class="num">Count</th><th>Examples</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Legendary Artifact — Vehicle</td><td class="num gain">+12</td><td>Shorikai, Weatherlight, Parhelion II</td></tr>
+            <tr><td>Legendary Artifact — Spacecraft</td><td class="num gain">+2</td><td>Hearthhull, Inspirit</td></tr>
+            <tr><td>Legendary Planeswalker</td><td class="num gain">+1</td><td>Grist, the Hunger Tide</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <p>
+          <b>Grist is the tell.</b> It is a creature card everywhere except the battlefield,
+          has always been a legal commander, and predates the rules change entirely. The
+          hand-written test had been silently dropping it the whole time — the local rule
+          was unsound on its own terms, not just out of date.
+        </p>
+      </div>
+    </div>
+
+    <div class="decision">
+      <p class="eyebrow">03 · Trusting the wrong field</p>
+      <h3>Parse oracle text, not the convenience field</h3>
+      <div class="col">
+        <p>
+          Partner mechanics look like they should come from the API's <code>keywords</code>
+          array. They can't. Every <code>Partner with [name]</code> card is tagged with a
+          plain <code>Partner</code> keyword, and so is the restricted
+          <code>Partner—Character select</code>. Building on that field makes cards partner
+          that legally cannot.
+        </p>
+      </div>
+      <blockquote class="quote">
+        A creature with a “partner with” ability can't partner with any creature other
+        than its designated partner.
+      </blockquote>
+      <div class="col">
+        <p>
+          Mechanics are parsed from oracle text instead, and the illegal combinations are
+          pinned directly in unit tests so the distinction can't regress.
+        </p>
+      </div>
+      <div class="scroll">
+        <table>
+          <caption>Five partner mechanics, five different pairing rules</caption>
+          <thead>
+            <tr><th>Mechanic</th><th>Pairs with</th><th class="num">Units</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">Partner</td><td>any other plain-Partner card</td><td class="num">116</td></tr>
+            <tr><td class="mono">Partner with [name]</td><td><b>only</b> its named card</td><td class="num">14</td></tr>
+            <tr><td class="mono">Partner—Character select</td><td>only other Character select cards</td><td class="num">15</td></tr>
+            <tr><td class="mono">Doctor's companion</td><td>any legendary Time Lord Doctor</td><td class="num">390</td></tr>
+            <tr><td class="mono">Choose a Background</td><td>any Background</td><td class="num">16</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Delivery</p>
+    <h2>The answer had to be a spreadsheet</h2>
+    <div class="col">
+      <p>
+        Players don't want a CLI. The deliverable is a workbook whose front page takes
+        your picks and lists every commander your partner may legally bring — including
+        partner pairs — with the shared set and which deck to buy it in.
+      </p>
+      <p>
+        Two constraints shaped the formulas. <b>Portability:</b> <code>FILTER</code> and
+        <code>XLOOKUP</code> are “future functions” that need <code>_xlfn._xlws.</code>
+        prefixes when a file is generated outside Excel, and render as
+        <code>#NAME?</code> if you get that wrong. Sticking to <code>INDEX</code>/<code>MATCH</code>
+        avoids the trap and keeps it working in Google Sheets, where it's been verified.
+      </p>
+      <p>
+        <b>Cost:</b> the partner list resolves its block position once, then reads by offset.
+      </p>
+    </div>
+    <pre><code><span class="cmt">// One MATCH per lookup, not one per row.</span>
+<span class="cmt">// Rows are pre-sorted so a commander's partners are contiguous.</span>
+M2 = MATCH($M$1 &amp; "#1", 'Partner Options'!$B:$B, 0)   <span class="cmt">← block start</span>
+M3 = COUNTIF('Partner Options'!$C:$C, $M$1)          <span class="cmt">← block length</span>
+
+<span class="cmt">// each of 469 rows is then a pure offset read</span>
+A17 = INDEX('Partner Options'!$D:$D, $M$2 + ROW() - 17)</code></pre>
+    <div class="col">
+      <p>
+        A per-row <code>MATCH</code> would rescan a 43,000-row table on every keystroke. The
+        whole workbook contains 110 <code>MATCH</code> calls in total.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Confidence</p>
+    <h2>Proving a spreadsheet actually works</h2>
+    <div class="col">
+      <p>
+        openpyxl writes formulas but never evaluates them, so an off-by-one in an
+        <code>INDEX</code> offset would ship looking perfect. Tests run in three layers, each
+        answering a different question.
+      </p>
+    </div>
+    <div class="layers">
+      <div class="layer">
+        <div class="count">22</div>
+        <div class="name">test_rules.py</div>
+        <p>Pure functions, no network, 0.2s. Pins the partner-legality matrix — especially the combinations that must <em>not</em> be legal.</p>
+      </div>
+      <div class="layer">
+        <div class="count">19</div>
+        <div class="name">test_workbook.py</div>
+        <p>Invariants over all 21,699 generated rows, checked against the source decklists rather than the build's own state, so a bug can't vouch for itself.</p>
+      </div>
+      <div class="layer">
+        <div class="count">12</div>
+        <div class="name">test_team_builder_excel.py</div>
+        <p>Opens the workbook in a real Excel instance over COM, types into the input cells, forces recalculation and compares what Excel computes.</p>
+      </div>
+    </div>
+    <div class="col">
+      <p>
+        The invariants are deliberately adversarial: no team may share a color, no card may
+        appear on both sides, and every commander must trace back to a decklist of the set
+        it claims. Two bugs were caught this way that no amount of reading would have found.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Findings</p>
+    <h2>Some sets barely function</h2>
+    <div class="col">
+      <p>
+        Once every team is enumerable, the format's shape becomes visible — and it is
+        lopsided. This is the output people found most useful, because it tells you which
+        sets to avoid before anyone spends money.
+      </p>
+    </div>
+    <div class="scroll">
+      <table>
+        <caption>Viability by set</caption>
+        <thead>
+          <tr><th>Set</th><th class="num">Commanders</th><th class="num">With no legal partner</th><th class="num">Legal teams</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Phyrexia: All Will Be One</td><td class="num">7</td><td class="num flag">7</td><td class="num flag">0</td></tr>
+          <tr><td>Lorwyn Eclipsed</td><td class="num">17</td><td class="num">10</td><td class="num">7</td></tr>
+          <tr><td>Modern Horizons 3</td><td class="num">19</td><td class="num">6</td><td class="num">34</td></tr>
+          <tr><td>Doctor Who</td><td class="num">78</td><td class="num">0</td><td class="num">10,582</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>
+        <b>Phyrexia: All Will Be One has no legal team at all.</b> Every color identity in the
+        set contains red or white, so nothing can pair with anything. Lorwyn Eclipsed has 17
+        commanders but only 7 teams — four are five-color and the set has no colorless
+        commander, leaving them with zero options.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Python · pandas · openpyxl · pytest · pywin32</span>
+    <span>Data: Scryfall &amp; MTGJSON</span>
+    <span>Unaffiliated with Wizards of the Coast</span>
+  </footer>
+
+</div>
